@@ -1,0 +1,2 @@
+This project in R evaluates major league baseball at-bats for the 2018 season.  The analysis involves merging pitching and hitting data along with player data 
+and analyzes the results of each at bat based on the final pitch thrown during the at bat along with other variables.
