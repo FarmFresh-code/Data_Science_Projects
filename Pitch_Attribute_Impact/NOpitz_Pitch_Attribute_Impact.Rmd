@@ -1,0 +1,504 @@
+---
+title: "DSC 520 Week 12 - Final Project"
+author: "Neil Opitz"
+date: "November 14, 2019"
+output:
+  word_document: default
+---
+
+## The MLB Dataset
+
+The dataset I am using can be downloaded from the Kaggle website* as a .csv file.  I imported the data into R using the 'read.csv()' function.  As the data represents approximately 2.9 million cases I am reducing the dataset to a single year (2018) by using the 'subset()' function.
+
+*https://www.kaggle.com/pschale/mlb-pitch-data-20152018
+
+
+```{r libraries and open data}
+
+library(ggplot2)
+library(gmodels)
+library(caret)
+library(e1071)
+library(class)
+library(caTools)
+library(dplyr)
+library(FNN) 
+library(psych)
+library(VIM)
+library(lubridate)
+library(Hmisc)
+library(tidyr)
+library(scales)
+library(fastDummies)
+library(forcats)
+library(rms)
+
+# import data into r dataframe
+pitch_all <- read.csv('pitches.csv', header = TRUE)
+
+# due to size of dataset, use only 2018 data
+pitch <- subset(pitch_all, ab_id >= 2018000000)
+
+```
+
+## Cleaning the dataset
+
+Inspection of the dataset reveals that there is missing data in the dataset.  Fewer than 1% of cases have missing data and are removed from the dataset using the na.omit() function.
+
+```{r clean data}
+# check for missing data
+aggr(pitch)
+pitchrowspre <- nrow(pitch)
+
+# remove cases with missing data
+pitch <- na.omit(pitch)
+pitchrowspost <- nrow(pitch)
+
+# calc % of rows that were removed
+percent_removed <- ((pitchrowspre - pitchrowspost)/pitchrowspre)
+percent_removed  # ~1% removed due to NA values
+
+aggr(pitch)
+```
+
+All cases with missing values have been removed from the dataset.
+
+## Create variables for analysis
+
+I created the following variables to assist in analysis and gain deeper insight:
+
+1. percent_speed_change: calculates the percentage each pitch slows down from start (the moment it leaves the pitcher's hand) to end (the moment it crosses home plate).  A higher value indicates a greater reduction in speed from start to end.
+
+2. runner_on_base: a single binary variable that is 1 if there is a runner on 1st, 2nd or 3rd base and 0 if there are no runners on any base.
+
+```{r create variables}
+# create new variable for speed change
+pitch$change_speed <- pitch$start_speed - pitch$end_speed
+
+# create new variable: percent speed change
+pitch$percent_speed_change <- pitch$change_speed / pitch$start_speed
+
+# create new variable for runner on base (1st, 2nd, or 3rd)
+pitch$runner_on_base <- 0
+pitch[pitch$on_1b >0 | pitch$on_2b > 0 | pitch$on_3b > 0, "runner_on_base"] <- 1
+```
+
+## Add in at bat outcome from kaggle data
+
+The associated 'atbats.csv' file from the Kaggle site contains an 'event' variable which holds the result of each at bat in the data.  Using the 'ab_id' variable, which is found in both files, I am merging the at bat result data to this data set with the intent of drawing inferences based on the result and pitch type and other pitch variables.  
+
+```{r add in at bat outcome}
+# add at bat result from atbats file
+atbats <- read.csv('atbats.csv', header = TRUE)
+pitch$ab_outcome <- atbats$event[match(pitch$ab_id, atbats$ab_id)]
+rm(atbats)
+
+# turn off scientific notation
+options(scipen=999)
+```
+
+## Data structure
+
+```{r data structure}
+str(pitch)
+```
+
+## Spin Rate of Pitch
+
+Spin Rate represents the rate of spin on a baseball after it is released in revolutions per minute.
+
+The amount of spin on a pitch changes its trajectory. The same pitch thrown at the same Velocity will end up in a different place depending on how much it spins.
+
+http://m.mlb.com/glossary/statcast/spin-rate
+
+# Histogram of spin rate
+
+```{histogram of pitch spin rate}
+ggplot(pitch2018, aes(x=spin_rate)) +
+  geom_histogram(aes(y=..density..),bins = 20, fill = "dodger blue", col = "black") +
+  labs(title = "Histogram of Pitch Spin Rate", subtitle = " * the distribution indicates outliers at the high end") + xlab('Pitch Spin Rate Bins') +
+  ylab('Density')
+```
+
+Based on the above pitch spin rate histogram, there exist outliers in the data at the high end that need to be reconciled.  Spin rates above 3500 are extremely rare. As the highest recorded spin rate is 3637 (courtesy of Baseball Savant)  The code below removes pitches with spin_rate > 3640 from the dataset.
+
+```{r remove spin rate outliers}
+# remove cases with outlier spin rates
+pitch <- subset(pitch, spin_rate < 3640)
+```
+
+## Exploring the data
+
+Charting some of the pitch variables gives us some insight into the distributions and frequences in our dataset.
+
+The bar chart below shows the frequency of pitch type thrown during the 2018 MLB season.  The four-seam fastball is the most frequently thrown pitch with more than double the frequency of the next most common pitch (slider).
+
+```{r pitch type}
+# pitch type bar chart
+ggplot(data=pitch2018, aes(pitch_type)) + geom_bar(fill = 'royal blue') +
+  labs(title = "Bar Chart of Pitch Type Frequency") + xlab('Pitch Type') +
+  ylab('Frequency') + ylim(0,300000)
+```
+
+# __Pitch Types:__
+## FF = Four-seam fastball
+## SL = Slider
+## FT = Two-seam fastball
+## CH = Changeup
+## CU = Curveball
+## SI = Sinker
+## FC = Cutter
+## KC = Knuckle Curve
+## FS = Splitter
+## KN = Knuckleball
+## EP = Eephus
+## PO/FO = Pitchout
+## SC = Screwball
+
+The majority of pitches were thrown for a strike.
+
+```{r pitch result frequency}
+# pie chart of pitch result
+res <- table(pitch$type)
+labels <- c('Ball', 'Strike', 'Hit in Play')
+pct <- round(res/sum(res)*100)
+lbls <- paste(labels, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(res,labels = lbls, col=rainbow(length(lbls)),main="Pie Chart of Pitch Result")
+
+# pitch zone bar chart
+ggplot(data=pitch2018, aes(zone)) + geom_bar(fill = 'red', color = 'black') +
+  labs(title = "Bar Chart of Pitch Zone Frequency", subtitle = "1-9 = in Strike Zone; 11-14 = Out of Strike Zone") + xlab('Pitch Zone') +
+  ylab('Frequency')
+```
+
+!['An image I create to show a representatin of the pitch zones in the data.'](images/PitchZone.png)
+
+```{r zone image}
+knitr::include_graphics('images/PitchZone.png')
+```
+
+The distance from the pitcher's mound to the plate is 60' 6".  AS the baseball travels from the pitcher's hand to the plate it loses speed.  Some pitches are designed to lose more speed than others based on the grip or spin applied during the pitching motion.  On average the speed of the baseball reduces in speed by approximately 8 MPH over that distance.  
+
+In this analysis (shown later in this report) the magnitude in the change in the speed of the ball is shown to be a significant variable in generating a strike versus the ball being hit into play.  A greater reduction in speed is associated with a higher strike rate.
+
+```{r more explanatory charts}
+# pitch start and end speed histogram
+ggplot(pitch2018, aes(x=start_speed)) +
+  geom_histogram(aes(y=..density..),bins = 20, fill = "#3895D3", col = "black") +
+  geom_histogram(aes(x=end_speed, y=..density..),bins = 20, fill = "red", alpha = 0.5, col = "black") +
+  labs(title = "Histogram of Start (Blue) and End (Red) Pitch Speeds") + xlab('Pitch Start (Blue) and End (Red) Speed Bins') +
+  ylab('Density')
+```
+
+The chart below shows the distribution of a pitch's 'nasty' factor. It appears that the distribution for this variable approximates the normal distribution.  Running a shapiro.test() on the pitch's 'nasty' variable and generating a qplot indicates that the distribution of the nasty factor is not normal.  The p-value for the shapiro test is <.05, indicating the distribution deviates from normality.  Also, the dots in the qplot deviate from a straight line indicating deviation from normality.
+
+```{r normal test for pitch nasty factor}
+shapiro.test(pitch$nasty)
+
+qplot(sample = pitch$nasty, stat = "qq",   main = "Q Plot of Pitch 'Nasty' Factor")
+```
+
+The nasty factor is a derived attribute which evaluates several properties of the pitch including velocity, pitch sequence, location, and movement.  The nasty factor also adjusts for how often a pitcher has faced the batter during the game.  The result for this derived attribute is on a scale from 0 to 100 for each pitch.
+
+
+```{r pitch nasty factor}
+# nasty factor histogram with normal curve
+ggplot(pitch, aes(x=nasty)) +
+  geom_histogram(aes(y=..density..),bins = 22, fill = "#33cccc", col = "black") +
+  labs(title = "Histogram of Pitch \"Nasty\" Factor", subtitle = "With Normal Curve Overlay") + xlab('Pitch \"Nasty\" Factor Bins') +
+  ylab('Density') +
+  stat_function(fun = dnorm, args = list(mean = mean(pitch$nasty, na.rm = TRUE), sd = sd(pitch$nasty, na.rm = TRUE)), color = "black", size = 1)
+```
+
+One of the original questions when first considering this dataset was to determine if there is a relationship between the nasty factor of a pitch and runners on base.  The rationale for the question was, after further review, based on the false assumption that a pitch's nasty factor has a strong relationship to how much a pitch moves or breaks as well as the spin rate.  If this were the case, the hypothesis was that a pitcher would be less likely to throw a pitch with more break or spin while there is a runner on base as these pitches are more difficult for a catcher to handle and may lead to a higher rate of pass balls or wild pitches resulting in baserunners moving to the next base or scoring.  As it turns out, the relationship between a pitch's nasty factor and break length, spin rate, and runners on base is weak as the correlation coefficient is less than 1 for each of these relationships.
+
+## Analysis Question # 3
+
+### Is there a relationship between a pitch’s ‘nasty’ factor and runners on base?
+
+### Answer: No.
+
+```{r correlation between nasty factor and break length, spin rate, and runners on base}
+cor(pitch$nasty, pitch$break_length)
+cor(pitch$nasty, pitch$spin_rate)
+cor.test(pitch$nasty, pitch$runner_on_base)
+```
+
+Further analysis identifies some interesting relationships between the pitch variables in this dataset.  For example, we observe a stong relationship between the start speed of a pitch and the pitch's spin rate: `r  cor(pitch$spin_rate, pitch$start_speed)`.  This positive relationship is evident in the scatterplot below.
+
+```{r spin rate vs start speed scatterplot}
+# Relationship strength = strong
+cor(pitch$spin_rate, pitch$start_speed)
+
+ggplot(pitch, aes(x=spin_rate, y=start_speed)) + geom_point() +
+  labs(title = 'Scatterplot of Spin Rate and Start Speed') +
+  xlab('Pitch Spin Rate') + ylab('Pitch Start Speed')
+```
+
+Earlier we discussed the calculated variable for the change in the speed of the pitch as it moves from the pitcher to home plate.  As the pitch loses a greater proportion of its starting speed, the variable 'percent_speed_change' becomes larger.  We observe a strong positive relationship between the spin rate of a pitch and the percentage change in the speed of a pitch.  This indicates that as the spin rate of a pitch increases, the percentage change in pitch speed (reduction of pitch speed) also gets larger.  A higher spin rate equates to a greater reduction in speed as the pitch moves from the pitcher to home plate.
+
+Correlation Coefficient for Spin Rate and Percent Change in pitch speed: `r cor(pitch$spin_rate, pitch$percent_speed_change)`
+
+This relationship is evident in the scatterplot below.
+
+```{r spin rate vs percent speed change scatterplot}
+# spin rate vs percent speed change scatterplot
+ggplot(pitch, aes(x=spin_rate, y=percent_speed_change)) + geom_point() +
+  labs(title = 'Scatterplot of Spin Rate and Change in Pitch Speed') +
+  xlab('Pitch Spin Rate') + ylab('Pitch Change in Pitch Speed')
+
+# Relationship strength = strong
+cor(pitch$spin_rate, pitch$percent_speed_change)
+```
+
+Another question I had when selecting this dataset is to see if there is a relationship between the rate of spin of the pitch and how much the pitch breaks before reaching home plate.  While the question I posed is 'two-tailed', my assumption in the question is that a pitch with a higher spin rate will have more vertical or lateral movement as it travels.  While the answer to the question is affirmative, it is not in the direction I had anticipated.  The correlation coefficient shows a strong negative relationship between spin rate and break length: `r cor(pitch$spin_rate, pitch$break_length)`.  The scatterplot below describes this relationship.
+
+## Analysis question #1
+
+### Is there a relationship between spin rate and break length?
+
+### Answer: Yes, there is a strong negative relationship between spin rate and break length.
+
+```{r spin rate vs break length scatterplot}
+ggplot(pitch, aes(x=spin_rate, y=break_length)) + geom_point() +
+  labs(title = 'Scatterplot of Spin Rate and Break Length') +
+  xlab('Pitch Spin Rate') + ylab('Pitch Break Length')
+
+# Relationship strength = strong
+cor(pitch$spin_rate, pitch$break_length)
+```
+
+For efficiency, the matrix below shows the correlation coefficients for the variables we have discussed thus far.
+
+```{r correlation matrix}
+corr_vars <- c("start_speed", "percent_speed_change", "spin_rate","break_length", "runner_on_base", "nasty")
+corr_data <- pitch[corr_vars]
+corr_matrix <- (round(cor(corr_data),2))
+print(corr_matrix)
+```
+
+## Subsetting the dataset: Last Pitch Data
+
+We have identified some relationships in our MLB 2018 Pitch data.  To gain additional insight, I am creating a new dataset which is a subset of this dataset.  The new dataset, which is called 'final_pitch' is comprised of the final pitch of each at bat.  Therefore, each pitch in this dataset is related to a specific outcome other than a ball or a strike.  I am hoping to identify attributes of a pitch that are related to different outcomes.  In addition to a subset of cases, I am also including only a subset of the variables from the original dataset to focus on those variables that I believe are relevant and remove variables that are not being used.
+
+```{r subsetting the data to focus on the final pitch of the at bat}
+final_pitch <-aggregate(pitch$pitch_num, by = list(pitch$ab_id), max)
+final_pitch <- setNames(final_pitch, c("ab_id","final_pitch_of_ab"))
+final_pitch$ab_outcome <- pitch$ab_outcome[match(final_pitch$ab_id, pitch$ab_id)]
+final_pitch$code <- pitch$code[match(final_pitch$ab_id, pitch$ab_id)]
+final_pitch$percent_speed_change <- pitch$percent_speed_change[match(final_pitch$ab_id, pitch$ab_id)]
+final_pitch$start_speed <- pitch$start_speed[match(final_pitch$ab_id, pitch$ab_id)]
+final_pitch$spin_rate <- pitch$spin_rate[match(final_pitch$ab_id, pitch$ab_id)]
+final_pitch$spin_dir <- pitch$spin_dir[match(final_pitch$ab_id, pitch$ab_id)]
+final_pitch$break_length <- pitch$break_length[match(final_pitch$ab_id, pitch$ab_id)]
+final_pitch$break_angle <- pitch$break_angle[match(final_pitch$ab_id, pitch$ab_id)]
+final_pitch$nasty <- pitch$nasty[match(final_pitch$ab_id, pitch$ab_id)]
+final_pitch$pitch_type <- pitch$pitch_type[match(final_pitch$ab_id, pitch$ab_id)]
+final_pitch$runner_on_base <- pitch$runner_on_base[match(final_pitch$ab_id, pitch$ab_id)]
+```
+
+For purposes of this analysis, I am creating a new variable called 'strike_hit'.  This is a binary variable that is scored '1' if the final pitch results in a strikeout and is scored a '0' if the final pitch results in a hit into play (a fair ball hit).  As we are focusing on the strike_hit variable for this analysis, I am removing cases that are not a strikeout or a hit into play.
+
+```{r create new variable of strike versus hit}
+final_pitch$strike_hit[final_pitch$code == "S" | final_pitch$code == "W" | final_pitch$code == "C"] <- 1
+final_pitch$strike_hit[final_pitch$code == "X" | final_pitch$code == "D" | final_pitch$code == "E" ] <- 0
+
+# remove all other outcomes except strike or hit from strike_hit_data
+strike_hit_data <- na.omit(final_pitch)
+```
+
+As shown in the pie chart below, there is a much higher occurrence of strikeouts in our dataset compared to balls hit in play.  Due to the size of the dataset we have a large enough representation of both outcomes in the data.
+
+```{r pie chart of pitch result}
+result <- table(final_pitch$strike_hit)
+labels <- c('Hit in Play', 'Strikeout')
+pct <- round(result/sum(result)*100)
+lbls <- paste(labels, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(result,labels = lbls, col=rainbow(length(lbls)),main="Final Pitch Subset Data: Strikeouts vs. Hit Into Play")
+```
+
+
+cor(pitch$start_speed, pitch$percent_speed_change)
+0.2160266
+above is the approx corr for start speed and speed change in full data   # VALIDATE
+
+measure if the corr is different for this final pitch... specifically on the strikeout data
+
+`r cor(final_pitch$start_speed, final_pitch$percent_speed_change)`
+
+strikeouts <- subset(final_pitch, strike_hit == 1)
+hits <- subset(final_pitch, strike_hit == 0)
+
+cor for strikeouts
+`r cor(strikeouts$start_speed, strikeouts$percent_speed_change)`
+
+cor for hits
+`r cor(hits$start_speed, hits$percent_speed_change)`
+
+We have already identified that there is a
+
+We can see in the scatterplot below that there is a relationship, but it is not strong.
+
+```{r }
+ggplot(strike_hit_data, aes(x=start_speed, y=percent_speed_change)) +
+  geom_point() +
+  labs(title = 'Scatterplot of Start Speed and Percent Change in Speed') +
+  xlab('Pitch Start Speed') + ylab('Percentage Reduction in Speed')
+```
+
+If we factor our 'strike_hit' variable into the scatterplot a story starts to appear from the data.  We observe a higher proportion of strikeouts on final pitches that have a higher rate of spin and larger reduction in speed.  The correlation coefficient for this relationship is `r cor(pitch$spin_rate, pitch$percent_speed_change)`.
+
+
+```{r scatterplot of spin rate and break length with strike_hit as factor}
+ggplot(strike_hit_data, aes(x=spin_rate, y=break_length)) +
+  geom_point(aes(color = factor(strike_hit))) +
+  labs(title = 'Scatterplot of Spin Rate and Break Length') +
+  xlab('Pitch Spin Rate') + ylab('Pitch Break Length')
+nrow(strike_hit_data)
+```
+
+We observe a higher proportion of strikeouts on final pitches that are higher in the distribution, which seems to indicate that higher start speeds and greater percentage changes in pitch speed (the pitch loses more of its speed) are associated with a higher rate of strikeouts than hits.
+
+```{r start speed and speed change with strike/hit color factor scatterplot}
+ggplot(strike_hit_data, aes(x=start_speed, y=percent_speed_change)) +
+  geom_point(aes(color = factor(strike_hit))) +
+  labs(title = 'Scatterplot of Start Speed and Percent Change in Speed') +
+  xlab('Pitch Start Speed') + ylab('Percentage Reduction in Speed')
+```
+
+In order to measure this relationship, I have executed a regression analysis on our final_pitch strike_hit subset data.  Our outcome variable is the 'strike_hit' variable.  Our indenpendent variables include the pitch's start speed, spin rate, spin direction, break length, percentage speed change, runners on base, and nasty factor derived attribute.  As these variables have very different scales, I have opted to scale the independent variable data using the scale() function.  The scale function standardizes each value in each variable allowing for relative comparisons to occur between the variables.  I have chosen to use binomial logistic regression as we have a binary outcome variable.
+
+```{r binomial logistic regression model}
+
+regr_vars <- c("start_speed", "spin_rate", "spin_dir", "break_length", "break_angle", "nasty", "percent_speed_change","runner_on_base")
+regr_data <- strike_hit_data[regr_vars]
+outcome <- c("strike_hit")
+outcome_data <- strike_hit_data[outcome]
+scaled_regr_data <- scale(regr_data)
+regr_outcome_data <- cbind(outcome_data, scaled_regr_data)
+
+binomregrmod <- glm(formula = strike_hit ~ start_speed + spin_rate + spin_dir +
+                      break_angle + break_length + nasty + percent_speed_change +
+                      runner_on_base, data = regr_outcome_data, family = "binomial")
+
+summary(binomregrmod)
+```
+
+The model results tell us that the following variables in our model have a significant positive relationship (p-value < .05) to our outcome variable:
+  start_speed
+  nasty factor
+  percent_speed_change
+  
+The significance for 'break_length' is close but is higher than our .05 significance level (.068).
+
+The Null deviance (636) and Residual deviance (588) tell us that the model is better at predicting a strikeout than before our independent variables were added.
+
+```{r determin if model is significantly better at predicting outcome}
+
+modelChi <- binomregrmod$null.deviance - binomregrmod$deviance
+modelChi
+
+chidf <- binomregrmod$df.null - binomregrmod$df.residual
+chisq.prob <- 1 - pchisq(modelChi, chidf)
+chisq.prob
+```
+
+Calculating the model chi-square and its significance tells us that the model is significantly better at predicting the strikeout outcome.  The p-value is <.05 indicating that we can reject the null hypothesis that the model is not better than chance at predicting the outcome.
+  
+Using the RMS package we can calculate the R-squared value for our regression model.
+
+```{r generate r-squared value for model}
+require(rms)
+
+binomregrmod <- lrm(strike_hit ~ start_speed + spin_rate + spin_dir +
+                      break_angle + break_length + nasty + percent_speed_change +
+                      runner_on_base, data = regr_outcome_data)
+
+binomregrmod
+```
+
+The r-squared value for our model indicates that the model accounts for almost 12% of the variation in our strike_hit variable.  
+
+I have created a series of dummy variables for each pitch type in the dataset. After running the regression a few of the pitches had to be thrown out as the Standard Error was very high (greater than 2), likely due to the small number of occurrences for these pitch types.  I included the pitch type dummy variables in the regression model to see if pitch type would have a significant impact on our strike_hit outcome variable. The dummy variable for each pitch type has a 1 if the pitch is present for each case and a 0 if it is not. I used the scale() function on all independent variables again to allow for relative impact and comparison.  As the below results indicate, the individual pitch types in dummy variable format are not significant as the p-values are greater than .05 for each pitch type.
+
+```{r regression model with pitch type dummy variables}
+final_pitch <- dummy_cols(swingdata, select_columns = "pitch_type",remove_first_dummy = TRUE)
+
+# Pitch types removed due to high STD ERR: FO, SC
+finalvars <- c("start_speed" , "spin_rate" , "spin_dir" ,
+               "break_angle" , "break_length" , "nasty" , "percent_speed_change" ,
+               "runner_on_base" , "pitch_type_CH" , "pitch_type_CU" , "pitch_type_EP" ,
+               "pitch_type_FC" , "pitch_type_FF" , "pitch_type_FS" ,
+               "pitch_type_FT" , "pitch_type_KC" , "pitch_type_KN" ,  
+               "pitch_type_SI" , "pitch_type_SL")
+
+final_pitch_regression <- final_pitch[finalvars]
+scale_final_pitch_regression <- scale(final_pitch_regression)
+final_outcome_strike_hit <- c("strike_hit")
+final_outcome_var <- final_pitch[final_outcome_strike_hit]
+
+final_pitch_regression_data <- cbind(final_outcome_var, scale_final_pitch_regression)
+
+final_pitch_regr <- glm(strike_hit ~ start_speed + spin_rate + spin_dir +
+                         break_angle + break_length + nasty + percent_speed_change +
+                         runner_on_base + pitch_type_CH + pitch_type_CU + pitch_type_EP +
+                         pitch_type_FC + pitch_type_FF + pitch_type_FS +
+                         pitch_type_FT + pitch_type_KC + pitch_type_KN +  
+                         pitch_type_SI + pitch_type_SL, data = final_pitch_regression_data, family = "binomial")
+
+summary(final_pitch_regr)
+
+require(rms)
+
+final_pitch_regr_mod <- lrm(strike_hit ~ start_speed + spin_rate + spin_dir +
+                         break_angle + break_length + nasty + percent_speed_change +
+                         runner_on_base + pitch_type_CH + pitch_type_CU + pitch_type_EP +
+                         pitch_type_FC + pitch_type_FF + pitch_type_FS +
+                         pitch_type_FT + pitch_type_KC + pitch_type_KN +  
+                         pitch_type_SI + pitch_type_SL, data = final_pitch_regression_data)
+
+final_pitch_regr_mod
+```
+
+## Further Subsetting the dataset: Last Pitch Data - Swinging Strike vs Hit in Play
+
+In an effort to gain more insight on swinging strikes I reduced our final_pitch dataset further by using only the last pitch of the at bat that resulted in either a _swinging strike_ or a fair ball hit into play.  This subset removed the 'called' strike from the prior strike_hit subset and includes the final pitches in which the batter swings and misses the pitch or hits a fair ball. I created a binary variable called 'swing' which is set to '1' if the pitch is a swinging strike and '0' if the ball is hit in play.
+
+``` {r final pitch swing data subset}
+swingdata <- final_pitch
+swingdata$swing[swingdata$code == "S" | swingdata$code == "W"] <- 1
+swingdata$swing[swingdata$code == "X" | swingdata$code == "D" | swingdata$code == "E" ] <- 0
+swingdata <- na.omit(swingdata)
+```
+
+This dataset allows us to answer the final question from my original set of questions, which relates to the impact of a pitch's 'nasty' factor on swinging strikes.  We observed earlier that 'nasty' has little relationship to break length, spin rate, and runners on base, but that it does have a relationship to strikeouts (per our regression analysis).  I ran a correlation between the pitch 'nasty' factor and our derived 'swing' outcome to identify if a relationship exists.  The analysis reveals that there is a moderate relationship between these two variables: `r cor(swingdata$nasty, swingdata$swing)` .
+
+## Analysis Question # 2
+
+### What is the relationship between a pitch’s ‘nasty’ factor and swinging strikes?
+
+### Answer: Yes, we observe a moderate positive relationship between a pitch's 'nasty' factor and swinging strikes, indicating that as the nasty factor of a pitch increases, we observe a moderate increase in swinging strikes.
+
+```{r correlation between nasty and swing}
+cor(swingdata$nasty, swingdata$swing)
+```
+
+# Summary of Findings:
+
+## Question 1: Relationship between spin rate and break length
+## Answer: Yes, a strong negative relationship.
+
+## Question 2: Relationship between a pitch’s ‘nasty’ factor and swinging strikes.
+## Answer: Yes, a moderate positive relationship.
+
+## Question 3: Relationship between a pitch’s ‘nasty’ factor and runners on base.
+## Answer: No relationship.
+
+## We have identified 3 pitch attributes with a strong relationship to predicting a strikeout outcome: 
+###  Faster pitch speeds
+###  Greater reduction in speed of pitch as it travels to the plate
+###  Pitch 'Nasty' Factor
+
+### The regression model is significantly better than chance at predicting a strikeout versus a ball hit into play.  The model accounts for approximately 12% of the variance in our Strikout vs. Hit outcome variable.
