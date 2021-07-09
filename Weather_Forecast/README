@@ -1,0 +1,8 @@
+Weather Forecast
+This Python project interacts with the user to obtain specifications for which it provides a weather forecast.
+#   Description: The program asks the user if they would like to enter either a zip code or city location to get a weather conditions for that location.
+#   Usage: The program determines if a zipcode or city name will be entered by the user, then validates the user entry.  The program uses a GET request
+#   to obtain the forecast for the location from the server. The server returns json data containing several weather forecast variables.  
+#   The program parses the data, stores only the required weather data in a response.json() variable, and prints the forecast data to the user.  
+#   The program prompts the user for another forecast and implements error checking with a sentinel value for their response.
+
