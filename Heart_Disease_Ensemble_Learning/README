@@ -1,1 +1,13 @@
-The third project for DSC680 will focus on using ensemble methods for predictions  in a heart disease dataset
+## General Info
+This project explores heart disease, which is the leading cause of death in the United States, and how a machine learning classification algorithm can be effectively applied to healthcare data.  
+Electrocardiogram data collected across four different geographic locations is used to determine if explanatory metrics collected from this test can accurately predict if a patient has heart disease.  
+An ensemble learning methodology is utilized to minimize error for this critical subject and improve model accuracy.  
+The results of this project could be used to assist in early detection of heart disease to allow healthcare workers to administer applicable medication and advice.
+
+## Data
+Four datasets downloaded from teh UCI ML Repository
+
+## Setup
+To run this project:
+1. download the datasets from https://archive.ics.uci.edu/ml/datasets/Heart+Disease
+2. download and run the Jupyter Notebook in this repository
