@@ -1,0 +1,15 @@
+README
+## General Info
+This project explores the composition of groupings for board game attributes and the group relationships to subjective ratings for board games.  
+A k-means clustering algorithm is used to identify clusters of games with similar attributes.
+
+## Data
+The dataset for this project consists of user ratings and attributes for board games that are listed on the boardgamegeek website.  
+Attributes found in the data include the number of players, recommended minimum age for a player, and the expected game duration.  
+Additional attributes include the publisher, designer, and artist as well as date of first publishing, game mechanics and general categories that describe the game.  
+The dataset is rich, containing over 100,000 cases with data collected over two decades since the website was launched.
+
+## Setup
+To run this project:
+1. download the datasets from Kaggle: https://www.kaggle.com/seanthemalloy/board-game-geek-database
+2. download and run the Jupyter Notebook in this repository
