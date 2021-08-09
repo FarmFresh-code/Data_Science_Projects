@@ -1,0 +1,16 @@
+## General Info
+This project is focused on visualizing the safety of airline travel.
+Several different data sources and visualization tools are utilized for this project.
+The primary file for this project is the presentation of data and visualizations.
+
+## Data
+The data for this project was obtained from the sources below:
+https://www.airlines.org/dataset/world-airlines-traffic-and-capacity/#
+https://github.com/fivethirtyeight/data/tree/master/airline-safety
+https://data.world/data-society/airplane-crashes
+https://www.statista.com/statistics/263443/worldwide-air-traffic-fatalities/
+https://www.bts.gov/content/transportation-fatalities-mode
+
+## Setup
+To run this project:
+1. run the presentation included in the repository
