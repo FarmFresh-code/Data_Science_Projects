@@ -1,0 +1,12 @@
+README
+## General Info
+This project analyzes traffic accident data captured by law enforcement officers in the city of Philadelphia over the 10 years from 2007 through 2017.
+Analysis includes exploratory data analysis and regression for the identification of human and environmental factors related to traffic accidents.
+
+## Data
+The data includes weather, street lighting, vehicle, and driver/passenger demographic information.
+
+## Setup
+To run this project:
+1. download the datasets from Kaggle: https://www.opendataphilly.org/dataset/vehicular-crash-data/resource/229497e2-ef2e-4a8d-8408-badddedb2657
+2. download and run the Jupyter Notebook in this repository
