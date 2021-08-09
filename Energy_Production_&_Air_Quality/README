@@ -1,0 +1,18 @@
+README
+## General Info
+This project explores the impact that the production of different energy types has upon air quality.
+The project uses annual energy production quantities for each state for the years 1990 through 2018.
+Air quality data captured by air quality monitors for the same time period is used.
+
+## Data
+The data for this project is drawn from several sources:
+Energy - Net Generation by State & type: https://www.eia.gov/electricity/data/state/
+Air Quality - https://aqs.epa.gov/aqsweb/airdata/download_files.html#Annual
+California wildfire data - https://www.fire.ca.gov/media/11397/fires-acres-all-agencies-thru-2018.pdf
+
+## Setup
+To run this project:
+1. download the air quality and energy production data files from the links above
+2. download and run the Jupyter Notebook in this repository
+3. download and run the R script in this repository
+
