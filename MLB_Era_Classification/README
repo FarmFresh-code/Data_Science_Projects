@@ -1,0 +1,16 @@
+README
+## General Info
+This project explores methods for the classification of major league baseball players into different eras based on their offensive performance.
+The code randomly selects players from 4 different timeframes across the history of the sport.
+The code then uses decision tree classification and support vector machine classification to classify individual players into the specific eras.
+
+## Data
+All data for this project is from the Sean Lahman baseball database.
+The database, developed and maintained by Sean Lahman and contains data dating back to the 1860's.
+download site: http://www.seanlahman.com/baseball-archive/statistics/
+The data is accessed from the database via sql
+
+
+## Setup
+To run this project:
+1. download and run the Jupyter Notebook in this repository
