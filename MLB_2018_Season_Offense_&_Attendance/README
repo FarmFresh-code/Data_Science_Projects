@@ -1,0 +1,17 @@
+README
+## General Info
+This project explores data from the 2018 Major League Baseball season.  
+The majority of the analysis focuses on team and player offensive performance.
+Analysis includes other attributes such as team attendance.
+
+## Data
+There are multiple data sources for this project including retrosheet, espn, and statsapi:
+1. https://www.retrosheet.org/gamelogs/index.html (select 2018)
+2. 'http://www.espn.com/mlb/history/leaders/_/breakdown/season/year/2018/start/'
+3. python statsapi library: https://github.com/toddrob99/MLB-StatsAPI
+
+
+## Setup
+To run this project:
+1. download and run the Jupyter Notebook in this repository
+2. make sure to install the statsapi library from Todd Roberts github reposity listed above
