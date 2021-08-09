@@ -8,5 +8,5 @@ The data includes weather, street lighting, vehicle, and driver/passenger demogr
 
 ## Setup
 To run this project:
-1. download the datasets from Kaggle: https://www.opendataphilly.org/dataset/vehicular-crash-data/resource/229497e2-ef2e-4a8d-8408-badddedb2657
+1. download the data from Kaggle: https://www.opendataphilly.org/dataset/vehicular-crash-data/resource/229497e2-ef2e-4a8d-8408-badddedb2657
 2. download and run the Jupyter Notebook in this repository
