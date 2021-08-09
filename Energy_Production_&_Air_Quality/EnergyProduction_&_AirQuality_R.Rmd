@@ -1,0 +1,133 @@
+---
+title: "NOpitz_DSC630_Final_Project_R_Code"
+author: "Neil Opitz"
+date: "11/20/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## R Markdown
+
+
+```{r libraries}
+library(e1071) 
+library(caTools) 
+library(caret) 
+library(ggplot2)
+```
+
+
+## Import Data
+
+
+```{r import data}
+# import data
+all_data <- read.csv('dsc630final_all_sources.csv')
+cal_data <- read.csv('dsc630final_california.csv')
+```
+
+
+### Model 1
+#### All Data
+#### Linear Regression
+#### Explanatory = Percent Energy Production
+#### Response = Percent Unhealthy Days
+
+
+```{r model 1}
+# Linear Model - All Data
+
+linear_all <- lm(Percent_Unhealthy_Days ~ green_percent + Natural_Gas_Percent + 
+                Coal_Percent + Petroleum_Percent, data=all_data) 
+
+summary(linear_all)
+```
+
+
+### Model 2
+#### All Data
+#### Logistic Regression
+#### Explanatory = Raw Energy Production
+#### Response = Binary Median AQI
+
+
+```{r model 2}
+
+# Logistic Model - All Data
+
+# Splitting data into train and test data 
+set.seed(101)
+sample <- sample.int(n = nrow(all_data), size = floor(.70*nrow(all_data)), replace = F)
+all_train <- all_data[sample, ]
+all_test  <- all_data[sample, ]
+
+classifier <- glm(AQI_GT38 ~ TOTAL_GREEN_PRODUCTION + Coal + Natural_Gas
+                  + Petroleum, data = all_train) 
+
+summary(classifier)
+
+# predict outcome on test dataset
+prob_pred <- predict(classifier, type = 'response', newdata = all_test[])
+
+# transform prob_pred into 0 and 1 results
+y_pred <- ifelse(prob_pred > 0.5, 1, 0)
+
+# make confusion matrix
+cm <- table(all_test[,36], y_pred)
+
+# calculate accuracy
+accuracy <- (cm[1,1] + cm[2,2]) / (cm[1,2] + cm[2,1]+ cm[1,1] + cm[2,2])
+accuracy
+```
+
+
+### Model 3
+#### California Data
+#### Linear Regression
+#### Explanatory = Raw Energy Production + Wildfire Acres Burned
+#### Response = Percent Unhealthy Days
+
+
+```{r model 3}
+# Linear Model - California Data
+
+linear_cal <- lm(Percent_Unhealthy_Days ~ Natural_Gas_Percent + Petroleum_Percent + Coal_Percent +
+                   Hydroelectric_Conventional_Percent + Wood_Wood_Derived_Fuels_Percent + 
+                   Wind_Percent + Nuclear_Percent + Solar_Thermal_Photovoltaic_Percent +
+                   Pumped_Storage_Percent + Geothermal_Percent + Other_Biomass_Percent +
+                   Other_Percent + ACRES_BURNED, data=cal_data) 
+
+summary(linear_cal)
+```
+
+
+### Model 4
+#### All Data
+#### Linear Regression
+#### Explanatory = Percent Green Energy Production
+#### Response = Median AQI
+
+
+
+```{r model 4}
+# AQI LINEAR MODEL
+
+linear_all_aqi <- lm(Median.AQI ~ green_percent, data=all_data) 
+
+summary(linear_all_aqi)
+```
+
+
+
+
+
+
+
+
+
+
+
