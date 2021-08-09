@@ -1,2 +1,17 @@
-This project in R evaluates major league baseball at-bats for the 2018 season.  The analysis involves merging pitching and hitting data along with player data 
-and analyzes the results of each at bat based on the final pitch thrown during the at bat along with other variables.
+
+
+
+README
+## General Info
+This project in R evaluates major league baseball at-bats for the 2018 season.  
+The program merges pitching and hitting data at the at-bat level across an entire season.
+The program evaluates different attributes of pitches and how they impact the at-bat outcomes.
+
+## Data
+The data for this project includes pitch and at bat data for the 2018 major league baseball season.
+Data files can be downloaded here: https://www.kaggle.com/pschale/mlb-pitch-data-20152018
+
+## Setup
+To run this project:
+1. download the datasets from Kaggle site listed above
+2. download and run the R script in this repository
